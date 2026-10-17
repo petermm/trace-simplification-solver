@@ -25,6 +25,9 @@ export interface SameNetViaMergerSolverInput {
   outline?: Array<{ x: number; y: number }>
   /** Prevent transition clusters that touch a route endpoint from moving. */
   preserveRouteEndpoints?: boolean
+  usePhysicalClearance?: boolean
+  allowBlindAndBuriedVias?: boolean
+  obstacleMargin?: number
 }
 
 type Via = {
@@ -129,6 +132,10 @@ const canMoveViaTo = (
     hdRouteSHI: HighDensityRouteSpatialIndex
     obstacleSHI: ObstacleSpatialHashIndex
     netByConnectionName?: ReadonlyMap<string, string>
+    usePhysicalClearance?: boolean
+    allowBlindAndBuriedVias?: boolean
+    obstacleMargin?: number
+    layerCount: number
   },
 ): boolean => {
   const route = context.mergedViaHdRoutes[viaToRemove.routeIndex]
@@ -154,6 +161,97 @@ const canMoveViaTo = (
     throw new Error(
       `SameNetViaMergerSolver could not find transition layers for via at (${viaToRemove.x}, ${viaToRemove.y})`,
     )
+  }
+
+  if (context.usePhysicalClearance) {
+    const movedIndexes = new Set<number>()
+    const copperLayers = new Set<number>()
+    for (let index = 1; index < route.route.length; index++) {
+      const start = route.route[index - 1]!
+      const end = route.route[index]!
+      if (
+        start.z === end.z ||
+        start.x !== viaToRemove.x ||
+        start.y !== viaToRemove.y ||
+        end.x !== viaToRemove.x ||
+        end.y !== viaToRemove.y
+      ) {
+        continue
+      }
+      const minZ = context.allowBlindAndBuriedVias ? Math.min(start.z, end.z) : 0
+      const maxZ = context.allowBlindAndBuriedVias
+        ? Math.max(start.z, end.z)
+        : context.layerCount - 1
+      for (let z = minZ; z <= maxZ; z++) copperLayers.add(z)
+      let first = index - 1
+      let last = index
+      while (
+        first > 0 &&
+        route.route[first - 1]!.x === viaToRemove.x &&
+        route.route[first - 1]!.y === viaToRemove.y
+      ) first--
+      while (
+        last + 1 < route.route.length &&
+        route.route[last + 1]!.x === viaToRemove.x &&
+        route.route[last + 1]!.y === viaToRemove.y
+      ) last++
+      for (let point = first; point <= last; point++) movedIndexes.add(point)
+    }
+    const isSameNet = (other: HighDensityRoute): boolean =>
+      tryGetNetForRoute(context.connMap, other, context.netByConnectionName) ===
+      viaToRemove.net
+    const isBlocked = (
+      start: { x: number; y: number; z: number },
+      end: { x: number; y: number; z: number },
+      radius: number,
+    ): boolean => {
+      const margin = radius + OBSTACLE_MARGIN
+      if (context.hdRouteSHI.hasConflictingRoutesForSegment(
+        start, end, margin, isSameNet,
+      )) {
+        return true
+      }
+      const obstacleMargin = radius + (context.obstacleMargin ?? OBSTACLE_MARGIN)
+      const obstacles = context.obstacleSHI.searchArea(
+        (start.x + end.x) / 2,
+        (start.y + end.y) / 2,
+        Math.abs(start.x - end.x) + 2 * obstacleMargin,
+        Math.abs(start.y - end.y) + 2 * obstacleMargin,
+      )
+      for (const obstacle of obstacles) {
+        if (!obstacle.__zLayers) {
+          throw new Error("Via merge obstacle has no physical layers")
+        }
+        if (
+          !obstacle.__zLayers.includes(start.z) ||
+          obstacleIsSameNet(context.connMap, obstacle, viaToRemove)
+        ) continue
+        if (segmentToBoxMinDistance(start, end, obstacle) < obstacleMargin - 1e-9) {
+          return true
+        }
+      }
+      return false
+    }
+    // A barrel occupies every intermediate layer, not only its signal ends.
+    for (const z of copperLayers) {
+      const point = { x: viaKeep.x, y: viaKeep.y, z }
+      if (isBlocked(point, point, viaToRemove.diameter / 2)) return false
+    }
+    // Check the resulting wire leads, not the old-to-new movement vector.
+    for (let index = 1; index < route.route.length; index++) {
+      if (!movedIndexes.has(index - 1) && !movedIndexes.has(index)) continue
+      const previous = route.route[index - 1]!
+      const next = route.route[index]!
+      if (previous.z !== next.z) continue
+      const start = movedIndexes.has(index - 1)
+        ? { ...previous, x: viaKeep.x, y: viaKeep.y }
+        : previous
+      const end = movedIndexes.has(index)
+        ? { ...next, x: viaKeep.x, y: viaKeep.y }
+        : next
+      if (isBlocked(start, end, route.traceThickness / 2)) return false
+    }
+    return true
   }
 
   for (const z of transitionLayers) {
@@ -349,6 +447,20 @@ export class SameNetViaMergerSolver extends BaseSolver {
     })
   }
 
+  private canMoveVia(viaToRemove: Via, viaKeep: Via): boolean {
+    return canMoveViaTo(viaToRemove, viaKeep, {
+      connMap: this.connMap,
+      mergedViaHdRoutes: this.mergedViaHdRoutes,
+      hdRouteSHI: this.hdRouteSHI,
+      obstacleSHI: this.obstacleSHI,
+      netByConnectionName: this.netByConnectionName,
+      usePhysicalClearance: this.input.usePhysicalClearance,
+      allowBlindAndBuriedVias: this.input.allowBlindAndBuriedVias,
+      obstacleMargin: this.input.obstacleMargin,
+      layerCount: this.input.layerCount,
+    })
+  }
+
   private getOffendingViaGroupsBatch(): Array<{ keep: Via; remove: Via[] }> {
     const groups: Array<{ keep: Via; remove: Via[] }> = []
     const touchedViaKeys = new Set<string>()
@@ -411,6 +523,7 @@ export class SameNetViaMergerSolver extends BaseSolver {
               if (squaredDistance === 0) continue
 
               if (
+                !this.input.usePhysicalClearance &&
                 squaredDistance <=
                 directOverlapDistance * directOverlapDistance
               ) {
@@ -420,13 +533,7 @@ export class SameNetViaMergerSolver extends BaseSolver {
 
               if (
                 squaredDistance <= nearMergeDistance * nearMergeDistance &&
-                canMoveViaTo(candidate, keep, {
-                  connMap: this.connMap,
-                  mergedViaHdRoutes: this.mergedViaHdRoutes,
-                  hdRouteSHI: this.hdRouteSHI,
-                  obstacleSHI: this.obstacleSHI,
-                  netByConnectionName: this.netByConnectionName,
-                })
+                this.canMoveVia(candidate, keep)
               ) {
                 remove.push(candidate)
               }
@@ -569,15 +676,30 @@ export class SameNetViaMergerSolver extends BaseSolver {
     }
 
     let mergedViaCount = 0
+    let mergedViaGroups = 0
     for (const group of groups) {
+      if (
+        this.input.usePhysicalClearance &&
+        !group.remove.every((via) => this.canMoveVia(via, group.keep))
+      ) continue
+      const changedRouteIndexes = new Set<number>()
       for (const viaToRemove of group.remove) {
         this.moveViaTo(viaToRemove, group.keep, false)
+        changedRouteIndexes.add(viaToRemove.routeIndex)
         mergedViaCount++
+      }
+      mergedViaGroups++
+      if (this.input.usePhysicalClearance) {
+        for (const routeIndex of changedRouteIndexes) {
+          const route = this.mergedViaHdRoutes[routeIndex]!
+          this.hdRouteSHI.removeRoute(route.connectionName)
+          this.hdRouteSHI.addRoute(route)
+        }
       }
     }
     this.rebuildVias()
     this.hdRouteSHI = this.createHdRouteSpatialIndex()
-    this.stats.mergedViaGroups = groups.length
+    this.stats.mergedViaGroups = mergedViaGroups
     this.stats.mergedViaCount = mergedViaCount
   }
 

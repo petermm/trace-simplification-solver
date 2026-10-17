@@ -124,6 +124,7 @@ export class TraceSimplificationSolver extends BaseSolver {
       readonly enableRoutedTraceDetours?: boolean
       readonly preserveRouteEndpoints?: boolean
       readonly useTraceWidthAwareClearance?: boolean
+      readonly allowBlindAndBuriedVias?: boolean
       readonly enableVertexShortcuts?: boolean
       readonly preserveExplicitLayerTransitions?: boolean
       readonly terminalLayerIndicesByPcbPortId?: ReadonlyMap<
@@ -419,6 +420,12 @@ export class TraceSimplificationSolver extends BaseSolver {
             inputHdRoutes: this.hdRoutes,
             otherHdRoutes: [...(this.simplificationConfig.otherHdRoutes ?? [])],
             netByConnectionName: this.simplificationConfig.netByConnectionName,
+            usePhysicalClearance:
+              this.simplificationConfig.useTraceWidthAwareClearance,
+            allowBlindAndBuriedVias:
+              this.simplificationConfig.allowBlindAndBuriedVias,
+            obstacleMargin:
+              this.simplificationConfig.minTraceToPadEdgeClearance,
             obstacles: [...this.simplificationConfig.obstacles],
             colorMap: { ...this.simplificationConfig.colorMap },
             layerCount: this.simplificationConfig.layerCount,
