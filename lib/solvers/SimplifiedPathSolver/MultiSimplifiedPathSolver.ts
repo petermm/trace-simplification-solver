@@ -31,6 +31,7 @@ export class MultiSimplifiedPathSolver extends BaseSolver {
   defaultViaDiameter: number
   useTraceWidthAwareClearance: boolean
   enableVertexShortcuts: boolean
+  preserveExplicitLayerTransitions: boolean
   private readonly geometryIndex: PathSimplificationGeometryIndex
 
   constructor(params: {
@@ -45,6 +46,7 @@ export class MultiSimplifiedPathSolver extends BaseSolver {
     defaultViaDiameter?: number
     useTraceWidthAwareClearance?: boolean
     enableVertexShortcuts?: boolean
+    preserveExplicitLayerTransitions?: boolean
   }) {
     super()
     this.MAX_ITERATIONS = 100e6
@@ -70,6 +72,8 @@ export class MultiSimplifiedPathSolver extends BaseSolver {
     this.useTraceWidthAwareClearance =
       params.useTraceWidthAwareClearance ?? false
     this.enableVertexShortcuts = params.enableVertexShortcuts ?? false
+    this.preserveExplicitLayerTransitions =
+      params.preserveExplicitLayerTransitions ?? false
     this.geometryIndex = new PathSimplificationGeometryIndex(
       this.unsimplifiedHdRoutes,
       this.otherHdRoutes,
@@ -101,6 +105,8 @@ export class MultiSimplifiedPathSolver extends BaseSolver {
         outline: this.outline,
         minBoardEdgeClearance: this.minBoardEdgeClearance,
         useTraceWidthAwareClearance: this.useTraceWidthAwareClearance,
+        preserveExplicitLayerTransitions:
+          this.preserveExplicitLayerTransitions,
         geometryQuery: {
           index: this.geometryIndex,
           routeIndex: this.currentUnsimplifiedHdRouteIndex,

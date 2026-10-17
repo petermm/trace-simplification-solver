@@ -100,6 +100,8 @@ export class TraceSimplificationSolver extends BaseSolver {
    *   - useTraceWidthAwareClearance: Uses each route segment's actual copper
    *     width when checking path-simplification clearance
    *   - enableVertexShortcuts: Adds a vertex cleanup pass after path sampling
+   *   - preserveExplicitLayerTransitions: Retains prevalidated plated-hole
+   *     transitions and enables the long-path progress guard
    *   - terminalLayerIndicesByPcbPortId: Physical copper-layer indices on
    *     which each PCB-port terminal can directly accept a route endpoint
    *     without a via
@@ -123,6 +125,7 @@ export class TraceSimplificationSolver extends BaseSolver {
       readonly preserveRouteEndpoints?: boolean
       readonly useTraceWidthAwareClearance?: boolean
       readonly enableVertexShortcuts?: boolean
+      readonly preserveExplicitLayerTransitions?: boolean
       readonly terminalLayerIndicesByPcbPortId?: ReadonlyMap<
         string,
         ReadonlySet<number>
@@ -263,6 +266,7 @@ export class TraceSimplificationSolver extends BaseSolver {
       route: route.route.map((point, index, points) => {
         const nextPoint = points[index + 1]
         if (
+          this.simplificationConfig.preserveExplicitLayerTransitions &&
           nextPoint &&
           point.z !== nextPoint.z &&
           point.toNextSegmentType === "through_obstacle"
@@ -446,6 +450,8 @@ export class TraceSimplificationSolver extends BaseSolver {
               this.simplificationConfig.useTraceWidthAwareClearance,
             enableVertexShortcuts:
               this.simplificationConfig.enableVertexShortcuts,
+            preserveExplicitLayerTransitions:
+              this.simplificationConfig.preserveExplicitLayerTransitions,
           })
           this.extractResult = (s) =>
             (s as MultiSimplifiedPathSolver).simplifiedHdRoutes

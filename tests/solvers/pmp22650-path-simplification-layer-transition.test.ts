@@ -46,6 +46,7 @@ test("preserves PMP22650 layer transitions during path simplification", () => {
     colorMap: {},
     outline: fixture.config.outline,
     minBoardEdgeClearance: fixture.config.minBoardEdgeClearance,
+    preserveExplicitLayerTransitions: true,
   })
 
   solver.solve()

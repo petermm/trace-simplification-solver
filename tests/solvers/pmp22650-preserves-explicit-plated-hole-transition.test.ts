@@ -67,6 +67,7 @@ test("preserves the explicit PMP22650 C18 plated-hole transition", () => {
     colorMap: {},
     defaultViaDiameter: 0.5,
     layerCount: 8,
+    preserveExplicitLayerTransitions: true,
   })
 
   expect(solver.hdRoutes[0]!.route[0]!.toNextSegmentType).toBe(

@@ -48,6 +48,7 @@ test("finishes the long PMP22650 path", () => {
     colorMap: {},
     outline: fixture.config.outline,
     minBoardEdgeClearance: fixture.config.minBoardEdgeClearance,
+    preserveExplicitLayerTransitions: true,
   })
 
   solver.solve()

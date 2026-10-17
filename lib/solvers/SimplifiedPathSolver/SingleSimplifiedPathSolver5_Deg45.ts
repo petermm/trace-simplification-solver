@@ -75,6 +75,7 @@ export class SingleSimplifiedPathSolver5 extends SingleSimplifiedPathSolver {
   OBSTACLE_MARGIN = 0.1
   TRACE_THICKNESS = 0.15
   private useTraceWidthAwareClearance = false
+  private preserveExplicitLayerTransitions = false
   private clearanceTraceThickness = this.TRACE_THICKNESS
 
   TAIL_JUMP_RATIO: number = 0.8
@@ -101,6 +102,7 @@ export class SingleSimplifiedPathSolver5 extends SingleSimplifiedPathSolver {
   constructor(
     params: ConstructorParameters<typeof SingleSimplifiedPathSolver>[0] & {
       useTraceWidthAwareClearance?: boolean
+      preserveExplicitLayerTransitions?: boolean
       geometryQuery?: {
         index: PathSimplificationGeometryIndex
         routeIndex: number
@@ -115,6 +117,8 @@ export class SingleSimplifiedPathSolver5 extends SingleSimplifiedPathSolver {
     this.clearanceTraceThickness = this.useTraceWidthAwareClearance
       ? this.inputRoute.traceThickness
       : this.TRACE_THICKNESS
+    this.preserveExplicitLayerTransitions =
+      params.preserveExplicitLayerTransitions ?? false
 
     // Handle empty or single-point routes
     if (this.inputRoute.route.length <= 1) {
@@ -377,7 +381,10 @@ export class SingleSimplifiedPathSolver5 extends SingleSimplifiedPathSolver {
 
     // Compute path segments and total length
     this.computePathSegments()
-    if (this.inputRoute.route.length > this.MAX_ITERATIONS) {
+    if (
+      this.preserveExplicitLayerTransitions &&
+      this.inputRoute.route.length > this.MAX_ITERATIONS
+    ) {
       this.MAX_ITERATIONS =
         MAXIMUM_ATTEMPTS_PER_PROGRESS_STEP * this.inputRoute.route.length
     }
@@ -987,7 +994,10 @@ export class SingleSimplifiedPathSolver5 extends SingleSimplifiedPathSolver {
           newTailIndex === 0
             ? 0
             : this.pathSegments[newTailIndex - 1].endDistance
-        if (this.headDistanceAlongPath < this.tailDistanceAlongPath) {
+        if (
+          this.preserveExplicitLayerTransitions &&
+          this.headDistanceAlongPath < this.tailDistanceAlongPath
+        ) {
           this.headDistanceAlongPath = this.tailDistanceAlongPath
         }
       }
