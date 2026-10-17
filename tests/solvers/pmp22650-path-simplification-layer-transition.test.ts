@@ -43,7 +43,6 @@ test("preserves PMP22650 layer transitions during path simplification", () => {
     otherHdRoutes: fixture.config.otherHdRoutes,
     obstacles: fixture.config.obstacles,
     connMap: new ConnectivityMap(fixture.config.connMap),
-    netByConnectionName: new Map(fixture.config.netByConnectionName),
     colorMap: {},
     outline: fixture.config.outline,
     minBoardEdgeClearance: fixture.config.minBoardEdgeClearance,

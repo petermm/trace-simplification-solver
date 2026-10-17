@@ -45,7 +45,6 @@ test("finishes the long PMP22650 path", () => {
     ],
     obstacles: fixture.config.obstacles,
     connMap: new ConnectivityMap(fixture.config.connMap),
-    netByConnectionName: new Map(fixture.config.netByConnectionName),
     colorMap: {},
     outline: fixture.config.outline,
     minBoardEdgeClearance: fixture.config.minBoardEdgeClearance,
