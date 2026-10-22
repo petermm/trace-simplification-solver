@@ -237,9 +237,9 @@ export class TraceSimplificationSolver extends BaseSolver {
     return this.simplificationConfig.obstacles.find(
       (obstacle) =>
         isMultilayerObstacle(obstacle) &&
-        this.isSameNetObstacle(route, obstacle) &&
         pointInsideObstacle(start, obstacle) &&
-        pointInsideObstacle(end, obstacle),
+        pointInsideObstacle(end, obstacle) &&
+        this.isSameNetObstacle(route, obstacle),
     )
   }
 
@@ -250,8 +250,8 @@ export class TraceSimplificationSolver extends BaseSolver {
     return this.simplificationConfig.obstacles.some(
       (obstacle) =>
         isMultilayerObstacle(obstacle) &&
-        this.isSameNetObstacle(route, obstacle) &&
-        pointInsideObstacle(via, obstacle),
+        pointInsideObstacle(via, obstacle) &&
+        this.isSameNetObstacle(route, obstacle),
     )
   }
 
